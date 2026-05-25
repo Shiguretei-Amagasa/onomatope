@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+
 <meta charset="utf-8">
 
 <meta
@@ -10,13 +11,24 @@ content="width=device-width, initial-scale=1.0">
 <!-- A-Frame -->
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
-<!-- AR.js -->
-<script src="https://rawcdn.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+<!-- look-at -->
+<script src="https://unpkg.com/aframe-look-at-component@1.0.0/dist/aframe-look-at-component.min.js"></script>
 
 <!-- MediaPipe -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+<script type="module">
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+import {
+  Pose
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/pose/+esm";
+
+import {
+  Camera
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/+esm";
+
+window.Pose = Pose;
+window.Camera = Camera;
+
+</script>
 
 <style>
 
@@ -27,7 +39,13 @@ body{
 }
 
 video{
-  display:none;
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  z-index:-1;
 }
 
 </style>
@@ -44,16 +62,15 @@ playsinline>
 
 <a-scene
 embedded
-renderer="colorManagement:true;"
-arjs="sourceType:webcam;
-      debugUIEnabled:false;">
+vr-mode-ui="enabled:false"
+device-orientation-permission-ui="enabled:false">
 
   <!-- camera -->
-  <a-entity camera></a-entity>
+  <a-camera position="0 0 0"></a-camera>
 
 </a-scene>
 
-<script>
+<script type="module">
 
 const scene =
 document.querySelector("a-scene");
@@ -69,22 +86,19 @@ let created = false;
 
 function createSpeedLines(parent){
 
-  const count = 60;
+  const count = 50;
 
   for(let i = 0; i < count; i++){
 
     const line =
     document.createElement("a-plane");
 
-    // ランダム長さ
     const length =
     2 + Math.random() * 2;
 
-    // ランダム太さ
     const width =
     0.01 + Math.random() * 0.03;
 
-    // 放射角度
     const angle =
     (360 / count) * i;
 
@@ -106,7 +120,7 @@ function createSpeedLines(parent){
     line.setAttribute(
       "material",
       `
-      opacity:0.7;
+      opacity:0.6;
       transparent:true;
       side:double;
       `
@@ -122,18 +136,6 @@ function createSpeedLines(parent){
       "0 0 -0.2"
     );
 
-    // 微妙に揺らす
-    line.setAttribute(
-      "animation",
-      `
-      property: rotation;
-      dir: alternate;
-      dur: 200;
-      loop: true;
-      to: 0 0 ${angle + 2}
-      `
-    );
-
     parent.appendChild(line);
   }
 }
@@ -142,7 +144,7 @@ function createSpeedLines(parent){
 // ゴゴゴ生成
 // =====================================
 
-function createGogo(x, y, z){
+function createGogo(x,y,z){
 
   const root =
   document.createElement("a-entity");
@@ -152,7 +154,7 @@ function createGogo(x, y, z){
     `${x} ${y} ${z}`
   );
 
-  // Billboard
+  // カメラ方向
   root.setAttribute(
     "look-at",
     "[camera]"
@@ -163,52 +165,46 @@ function createGogo(x, y, z){
     "animation",
     `
     property: rotation;
-    from: 0 0 -1;
-    to: 0 0 1;
-    dir: alternate;
-    dur: 80;
-    loop: true
+    from:0 0 -1;
+    to:0 0 1;
+    dir:alternate;
+    dur:80;
+    loop:true;
     `
   );
 
-  // =========================
   // 集中線
-  // =========================
-
   createSpeedLines(root);
 
-  // =========================
   // 疑似押し出し
-  // =========================
-
   const layers = [
 
     {
       x:0.03,
       y:0.03,
       z:-0.06,
-      color:"#000000"
+      color:"#000"
     },
 
     {
       x:0.02,
       y:0.02,
       z:-0.04,
-      color:"#000000"
+      color:"#000"
     },
 
     {
       x:0.01,
       y:0.01,
       z:-0.02,
-      color:"#000000"
+      color:"#000"
     },
 
     {
-      x:0.00,
-      y:0.00,
-      z:0.00,
-      color:"#ffffff"
+      x:0,
+      y:0,
+      z:0,
+      color:"#fff"
     }
 
   ];
@@ -244,7 +240,7 @@ function createGogo(x, y, z){
     );
 
     // 発光
-    if(i === layers.length -1){
+    if(i === layers.length - 1){
 
       text.setAttribute(
         "material",
@@ -283,46 +279,39 @@ pose.setOptions({
 
   smoothLandmarks:true,
 
-  enableSegmentation:false,
-
   minDetectionConfidence:0.5,
 
   minTrackingConfidence:0.5
 
 });
 
-// =====================================
-// 人物検出
-// =====================================
-
 pose.onResults(onResults);
+
+// =====================================
+// 人検出
+// =====================================
 
 function onResults(results){
 
-  // 一回だけ生成
   if(created) return;
 
   if(!results.poseLandmarks) return;
 
-  // 鼻位置
   const nose =
   results.poseLandmarks[0];
 
   if(!nose) return;
 
-  // =================================
-  // 2D → 擬似3D
-  // =================================
-
+  // 2D → 3Dっぽく変換
   const x =
-  (nose.x - 0.5) * 4;
+  (nose.x - 0.5) * 6;
 
   const y =
-  -(nose.y - 0.5) * 3 + 1;
+  -(nose.y - 0.5) * 4;
 
-  const z = -3;
+  const z = -5;
 
-  createGogo(x, y, z);
+  createGogo(x,y,z);
 
   created = true;
 }
@@ -345,6 +334,7 @@ videoElement,
 
   width:640,
   height:480
+
 });
 
 camera.start();
