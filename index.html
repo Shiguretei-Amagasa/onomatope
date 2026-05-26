@@ -9,25 +9,15 @@
 name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>ゴゴゴAR</title>
+<title>TEST</title>
 
-<!-- A-Frame -->
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-
-<!-- look-at -->
-<script src="https://unpkg.com/aframe-look-at-component@1.0.0/dist/aframe-look-at-component.min.js"></script>
-
-<!-- MediaPipe -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <style>
 
 body{
   margin:0;
   overflow:hidden;
-  background:black;
 }
 
 video{
@@ -46,323 +36,58 @@ video{
 
 <body>
 
-<!-- camera video -->
 <video
 id="video"
 autoplay
 playsinline>
 </video>
 
-<!-- A-Frame -->
-<a-scene
-embedded
-vr-mode-ui="enabled:false"
-device-orientation-permission-ui="enabled:false">
+<a-scene embedded>
 
-  <!-- camera -->
   <a-camera position="0 0 0"></a-camera>
 
 </a-scene>
 
 <script>
 
-// ========================================
-// scene
-// ========================================
-
 const scene =
 document.querySelector("a-scene");
 
-const videoElement =
-document.getElementById("video");
-
-let created = false;
-
-// ========================================
-// 集中線生成
-// ========================================
-
-function createSpeedLines(parent){
-
-  const count = 60;
-
-  for(let i = 0; i < count; i++){
-
-    const line =
-    document.createElement("a-plane");
-
-    // ランダム長さ
-    const length =
-    2 + Math.random() * 2;
-
-    // ランダム太さ
-    const width =
-    0.01 + Math.random() * 0.03;
-
-    // 放射角度
-    const angle =
-    (360 / count) * i;
-
-    line.setAttribute(
-      "width",
-      width
-    );
-
-    line.setAttribute(
-      "height",
-      length
-    );
-
-    line.setAttribute(
-      "color",
-      "#ffffff"
-    );
-
-    line.setAttribute(
-      "material",
-      `
-      opacity:0.5;
-      transparent:true;
-      side:double;
-      `
-    );
-
-    line.setAttribute(
-      "rotation",
-      `0 0 ${angle}`
-    );
-
-    line.setAttribute(
-      "position",
-      "0 0 -0.2"
-    );
-
-    // 少し揺らす
-    line.setAttribute(
-      "animation",
-      `
-      property: rotation;
-      dir: alternate;
-      dur: 200;
-      loop: true;
-      to: 0 0 ${angle + 2}
-      `
-    );
-
-    parent.appendChild(line);
-  }
-}
-
-// ========================================
-// ゴゴゴ生成
-// ========================================
-
-function createGogo(x, y, z){
-
-  const root =
-  document.createElement("a-entity");
-
-  root.setAttribute(
-    "position",
-    `${x} ${y} ${z}`
-  );
-
-  // カメラ方向
-  root.setAttribute(
-    "look-at",
-    "[camera]"
-  );
-
-  // 微振動
-  root.setAttribute(
-    "animation",
-    `
-    property: rotation;
-    from:0 0 -1;
-    to:0 0 1;
-    dir:alternate;
-    dur:80;
-    loop:true;
-    `
-  );
-
-  // ====================================
-  // 集中線
-  // ====================================
-
-  createSpeedLines(root);
-
-  // ====================================
-  // 疑似押し出し
-  // ====================================
-
-  const layers = [
-
-    {
-      x:0.03,
-      y:0.03,
-      z:-0.06,
-      color:"#000000"
-    },
-
-    {
-      x:0.02,
-      y:0.02,
-      z:-0.04,
-      color:"#000000"
-    },
-
-    {
-      x:0.01,
-      y:0.01,
-      z:-0.02,
-      color:"#000000"
-    },
-
-    {
-      x:0,
-      y:0,
-      z:0,
-      color:"#ffffff"
-    }
-
-  ];
-
-  layers.forEach((l, i)=>{
-
-    const text =
-    document.createElement("a-text");
-
-    text.setAttribute(
-      "value",
-      "ゴゴゴゴ"
-    );
-
-    text.setAttribute(
-      "color",
-      l.color
-    );
-
-    text.setAttribute(
-      "position",
-      `${l.x} ${l.y} ${l.z}`
-    );
-
-    text.setAttribute(
-      "scale",
-      "4 4 4"
-    );
-
-    text.setAttribute(
-      "align",
-      "center"
-    );
-
-    // 発光
-    if(i === layers.length -1){
-
-      text.setAttribute(
-        "material",
-        `
-        emissive:#5500ff;
-        emissiveIntensity:1.5;
-        `
-      );
-    }
-
-    root.appendChild(text);
-
-  });
-
-  scene.appendChild(root);
-}
-
-// ========================================
-// MediaPipe Pose
-// ========================================
-
-const pose = new Pose({
-
-  locateFile: (file) => {
-
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-
-  }
-
-});
-
-pose.setOptions({
-
-  modelComplexity:0,
-
-  smoothLandmarks:true,
-
-  enableSegmentation:false,
-
-  minDetectionConfidence:0.5,
-
-  minTrackingConfidence:0.5
-
-});
-
-// ========================================
-// 人検出
-// ========================================
-
-pose.onResults(onResults);
-
-function onResults(results){
-
-  // 一回だけ生成
-  if(created) return;
-
-  if(!results.poseLandmarks) return;
-
-  // 鼻
-  const nose =
-  results.poseLandmarks[0];
-
-  if(!nose) return;
-
-  // ====================================
-  // 2D → 擬似3D
-  // ====================================
-
-  const x =
-  (nose.x - 0.5) * 6;
-
-  const y =
-  -(nose.y - 0.5) * 4;
-
-  const z = -5;
-
-  createGogo(x, y, z);
-
-  created = true;
-}
-
-// ========================================
-// Camera Start
-// ========================================
-
-const camera = new Camera(
-videoElement,
-
-{
-  onFrame: async()=>{
-
-    await pose.send({
-      image: videoElement
-    });
-
-  },
-
-  width:640,
-  height:480
-
-});
-
-camera.start();
+// =====================================
+// 強制表示テスト
+// =====================================
+
+const text =
+document.createElement("a-text");
+
+text.setAttribute(
+  "value",
+  "HELLO"
+);
+
+text.setAttribute(
+  "color",
+  "#ff0000"
+);
+
+text.setAttribute(
+  "position",
+  "0 0 -2"
+);
+
+text.setAttribute(
+  "scale",
+  "2 2 2"
+);
+
+text.setAttribute(
+  "align",
+  "center"
+);
+
+scene.appendChild(text);
+
+console.log("TEXT ADDED");
 
 </script>
 
